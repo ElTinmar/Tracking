@@ -18,7 +18,6 @@ classdef LiveParam < handle
         param_rad = 15;
         fishlen = 165;
         numSkelPoints = 6;
-        bckg_span = 20000; %%WARNING I have clear artifacts because of this
         notifyFreq = 100; 
         
         tracking
@@ -45,6 +44,9 @@ classdef LiveParam < handle
                 case 'zfpc19'
                     maxNumCompThreads(68);
                     obj.mountdir = '/media/martin/NFS1';
+                case 'bluebird'
+                    maxNumCompThreads(8);
+                    obj.mountdir = '/media/martin/DATA_1';
                 otherwise
                     error('computer not recognized');
             end
@@ -168,64 +170,28 @@ classdef LiveParam < handle
         end
         
         %------------------------------------------------------------------
-        function avi_to_png(obj,indfish)
-            
-            [numFrame,Time] = readvars(obj.datafiles.timestamp{indfish});
-            obj.numframes = length(Time);
-            
-            [path,prefix,~] = fileparts(obj.datafiles.video{indfish});
-            imagedir = fullfile(path,prefix);
-            if ~exist(imagedir,'dir')
-                mkdir(imagedir);
-            end
-
-            movie = VideoReader(obj.datafiles.video{indfish});
-            obj.frame_num = 0;
-            tic
-            while movie.hasFrame()
-                obj.frame = movie.readFrame();
-                obj.frame = squeeze(obj.frame(:,:,1));
-                obj.frame_num = obj.frame_num + 1;
-                
-                if mod(obj.frame_num,round(obj.numframes * 5/100))==0
-                    fprintf([num2str(round(100*obj.frame_num/obj.numframes)) '%% '])
-                    toc
-                end
-                
-                framefile = fullfile(imagedir,[num2str(obj.frame_num,'%07.f') '.png']);
-                if ~exist(framefile,'file')
-                    imwrite(obj.frame,framefile,'PNG');
-                end
-            end
-
-            pnglist = dir([imagedir '/*.png']);
-            numfiles = numel(pnglist);
-
-            disp([num2str(numfiles) ', ' num2str(obj.numframes)])
-        end
-        
-        %------------------------------------------------------------------
         function background_model = model_background(obj,indfish,rangesamp)
             
             assert(indfish > 0 & indfish <= obj.numfish,'index out of range');
             assert(rangesamp(2)-rangesamp(1) >= obj.n_randsamples)
 
             disp(['computing background ' obj.datafiles.video{indfish} ':'])
-
-            % open the relevant frames 
-            [path,prefix,~] = fileparts(obj.datafiles.video{indfish});
-            imagedir = fullfile(path,prefix);
             frames_bckg = sort(randsample(rangesamp(1):rangesamp(2),obj.n_randsamples));
-            
-            % the array doesn't grow at each iteration, no preallocation
-            background_model = single([]);
-            for f = obj.n_randsamples:-1:1 
-                if mod(f,obj.n_randsamples/20)==0
-                    fprintf([num2str(round(100*(obj.n_randsamples-f+1)/obj.n_randsamples)) '%% '])
+            movie = VideoReader(obj.datafiles.video{indfish});
+            background_model = zeros(movie.height,movie.width,obj.n_randsamples,'single');
+            frame_num = 0;
+            background_frame = 0;
+            while movie.hasFrame()
+                frame = movie.readFrame();
+                frame_num = frame_num + 1;
+                if ismember(frame_num,frames_bckg)
+                     background_frame = background_frame + 1;
+                     if mod(background_frame,obj.n_randsamples/20)==0
+                        fprintf([num2str(round(100*(background_frame/obj.n_randsamples))) '%% '])
+                     end
+                     frame_b = im2single(frame);
+                     background_model(:,:,background_frame) = squeeze(frame_b(:,:,1));
                 end
-               imfile = fullfile(imagedir,[num2str(frames_bckg(f),'%07.f') '.png']);
-               frame_b = im2single(imread(imfile));
-               background_model(:,:,f) = squeeze(frame_b(:,:,1));
             end
             fprintf('\n')
         end
@@ -494,15 +460,15 @@ classdef LiveParam < handle
         %------------------------------------------------------------------
         function track(obj,indfish)
             
+            movie = VideoReader(obj.datafiles.video{indfish});
             [path,prefix,~] = fileparts(obj.datafiles.video{indfish});
             imagedir = fullfile(path,prefix);
-            pnglist = dir([imagedir '/*.png']);
-            obj.numframes = numel(pnglist);
+            obj.numframes = movie.NumFrames;
             
             if obj.gpu
-                background_model = gpuArray(obj.model_background(indfish,[1 obj.bckg_span]));
+                background_model = gpuArray(obj.model_background(indfish,[1 obj.numframes]));
             else
-                background_model = obj.model_background(indfish,[1 obj.bckg_span]);
+                background_model = obj.model_background(indfish,[1 obj.numframes]);
             end
             
             disp(['analyzing video ' obj.datafiles.video{indfish} ':'])
@@ -534,7 +500,7 @@ classdef LiveParam < handle
             vOut2.FrameRate = 100;
             open(vOut2);
 
-            movie = VideoReader(obj.datafiles.video{indfish});
+            
             obj.frame_num = 0;
             tic
             while movie.hasFrame()
@@ -545,18 +511,7 @@ classdef LiveParam < handle
                 else
                     obj.frame = im2single(squeeze(obj.frame(:,:,1)));
                 end
-
-                %% WARNING this is an issue as it causes artifacs
-%                 if mod(obj.frame_num,obj.bckg_span)==0
-%                     if obj.gpu
-%                         background_model = gpuArray(obj.model_background(indfish,...
-%                         [obj.frame_num min(obj.numframes, obj.frame_num + obj.bckg_span)]));
-%                     else
-%                          background_model = obj.model_background(indfish,...
-%                         [obj.frame_num min(obj.numframes, obj.frame_num + obj.bckg_span)]);
-%                     end
-%                 end
-
+                
                 if mod(obj.frame_num,round(obj.numframes * 1/100))==0
                     fprintf([num2str(round(100 * obj.frame_num/obj.numframes)) '%% '])
                     toc
@@ -595,7 +550,6 @@ classdef LiveParam < handle
         function analyse(obj)
             
             for i = 1:obj.numfish
-                obj.avi_to_png(i)
                 obj.track(i)
             end
         end
