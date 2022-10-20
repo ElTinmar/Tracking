@@ -1,5 +1,4 @@
 classdef LiveParam < handle
-    %%TODO insertShape is very slow, maybe move to another thread/program
     
     properties
         mountdir
@@ -15,7 +14,6 @@ classdef LiveParam < handle
         areathresh_fish = 500;
         arearange_param = [10 120];
         arearange_eyes = [100 500];
-        param_rad = 15;
         fishlen = 165;
         numSkelPoints = 6;
         
@@ -169,19 +167,6 @@ classdef LiveParam < handle
                 obj.tracking.CentroidX(obj.frame_num) = mean(x);
                 obj.tracking.CentroidY(obj.frame_num) = mean(y);
                 obj.tracking.Area(obj.frame_num) = length(x);
-                
-                % add fish principal axes to obj.frame
-                linelength = 50;
-                obj.frame = insertShape(obj.frame,'Line',...
-                    [obj.tracking.CentroidX(obj.frame_num),...
-                    obj.tracking.CentroidY(obj.frame_num),...
-                    obj.tracking.CentroidX(obj.frame_num) - linelength*PC(1,1),...
-                    obj.tracking.CentroidY(obj.frame_num) - linelength*PC(2,1);...
-                    obj.tracking.CentroidX(obj.frame_num),...
-                    obj.tracking.CentroidY(obj.frame_num),...
-                    obj.tracking.CentroidX(obj.frame_num) + linelength*PC(1,2),...
-                    obj.tracking.CentroidY(obj.frame_num) + linelength*PC(2,2)],...
-                    'LineWidth',1,'Color',[0 0 0; 1 1 1]);
             end
         end
         
@@ -203,9 +188,6 @@ classdef LiveParam < handle
             if ~isempty(statParam)
                   param_coord = vertcat(statParam.Centroid);
                   obj.tracking.ParamCoords{obj.frame_num} = param_coord;
-                  obj.frame = insertShape(obj.frame,'Circle',...
-                  [param_coord obj.param_rad*ones(size(param_coord,1),1)],...
-                    'LineWidth',1,'Color',[1 0 0]);
             end
         end
         
@@ -245,31 +227,11 @@ classdef LiveParam < handle
                         coordEyeLeftMajor = statEye(left_eye).MajorAxisLength./2 * [1; -1] ...
                             * [cosd(-statEye(left_eye).Orientation) sind(-statEye(left_eye).Orientation)] ...
                             + statEye(left_eye).Centroid;
-                         coordEyeLeftMajor_PC = (coordEyeLeftMajor - Ctd) * PC;
-
-                         obj.frame = insertShape(obj.frame,'Line',...
-                            [coordEyeLeftMajor(1,1),...
-                            coordEyeLeftMajor(1,2),...
-                            coordEyeLeftMajor(2,1),...
-                            coordEyeLeftMajor(2,2)],...
-                            'LineWidth',1,'Color',[1 0 0]);
-                        
+                        coordEyeLeftMajor_PC = (coordEyeLeftMajor - Ctd) * PC;
                         vect_PC = coordEyeLeftMajor_PC(2,:) - coordEyeLeftMajor_PC(1,:);
                         if vect_PC(1) < 0
                             vect_PC = -vect_PC;
-                            obj.frame = insertShape(obj.frame,'FilledCircle',...
-                            [coordEyeLeftMajor(2,1),...
-                            coordEyeLeftMajor(2,2),...
-                            2],...
-                            'LineWidth',1,'Color',[1 0 0]);
-                        else
-                            obj.frame = insertShape(obj.frame,'FilledCircle',...
-                            [coordEyeLeftMajor(1,1),...
-                            coordEyeLeftMajor(1,2),...
-                            2],...
-                            'LineWidth',1,'Color',[1 0 0]);
                         end
-                        
                         obj.tracking.LeftEyeAngle(obj.frame_num) = atan2(vect_PC(2),vect_PC(1));
 
                     end
@@ -279,30 +241,10 @@ classdef LiveParam < handle
                             * [cosd(-statEye(right_eye).Orientation) sind(-statEye(right_eye).Orientation)] ...
                             + statEye(right_eye).Centroid;
                         coordEyeRightMajor_PC = (coordEyeRightMajor - Ctd) * PC;
-
-                        obj.frame = insertShape(obj.frame,'Line',...
-                            [coordEyeRightMajor(1,1),...
-                            coordEyeRightMajor(1,2),...
-                            coordEyeRightMajor(2,1),...
-                            coordEyeRightMajor(2,2)],...
-                            'LineWidth',1,'Color',[0 1 1]);
-                        
                         vect_PC = coordEyeRightMajor_PC(2,:) - coordEyeRightMajor_PC(1,:);
                         if  vect_PC(1) < 0
                             vect_PC = -vect_PC;
-                            obj.frame = insertShape(obj.frame,'FilledCircle',...
-                            [coordEyeRightMajor(2,1),...
-                            coordEyeRightMajor(2,2),...
-                            2],...
-                            'LineWidth',1,'Color',[0 1 1]);
-                        else
-                            obj.frame = insertShape(obj.frame,'FilledCircle',...
-                            [coordEyeRightMajor(1,1),...
-                            coordEyeRightMajor(1,2),...
-                            2],...
-                            'LineWidth',1,'Color',[0 1 1]);
                         end
-                        
                         obj.tracking.RightEyeAngle(obj.frame_num) = atan2(vect_PC(2),vect_PC(1));
                     end
                 end
@@ -348,58 +290,8 @@ classdef LiveParam < handle
                     obj.tracking.Skeleton(obj.frame_num,1,s) = x_0 - pad_value;
                     obj.tracking.Skeleton(obj.frame_num,2,s) = y_0 - pad_value;
                     obj.tracking.SkeletonAngle(obj.frame_num,s) = best_theta - angle;
-                    
-                    obj.frame = insertShape(obj.frame,'Line',...
-                        [obj.tracking.Skeleton(obj.frame_num,1,s-1),...
-                        obj.tracking.Skeleton(obj.frame_num,2,s-1),...
-                        obj.tracking.Skeleton(obj.frame_num,1,s),...
-                        obj.tracking.Skeleton(obj.frame_num,2,s)],...
-                        'LineWidth',1,'Color',[0 1 0]);
                 end
-
-                %%TODO fit smoothing splines to the tail (todo in PC space)
-%                 p = 0.9;
-%                 skel_x = obj.tracking.Skeleton(obj.frame_num,1,:);
-%                 skel_y = obj.tracking.Skeleton(obj.frame_num,2,:);
-%                 x_up = skel_x(1):4:skel_x(end);
-%                 [~,y_up,~] = csaps(skel_x,skel_y,p,x_up);
-%                 for s = 1:length(x_up)
-%                     obj.frame = insertShape(obj.frame,'FilledCircle',...
-%                         [x_up(s) y_up(s) 1.5],'LineWidth',1,'Color',[0 1 0]);
-%                 end
             end
-        end
-        
-        %------------------------------------------------------------------
-        function frame_zoomed = zoom_and_rotate(obj)
-        %%TODO fix magic numbers as number of fish length
-            
-            if ~isnan(obj.tracking.PC1X(obj.frame_num))
-                angle = atan2(obj.tracking.PC1Y(obj.frame_num),obj.tracking.PC1X(obj.frame_num));
-
-                T0 = [1 0 0;
-                      0 1 0;
-                      -obj.tracking.CentroidX(obj.frame_num) -obj.tracking.CentroidY(obj.frame_num) 1];
-
-                R = [cos(angle)  -sin(angle) 0;
-                     sin(angle) cos(angle) 0;
-                     0 0 1];
-
-                T1 = [1 0 0;
-                     0 1 0;
-                     size(obj.frame,2)/2 size(obj.frame,1)/2 1];
-
-                Tf = T0 * R * T1;
-
-                tform = affine2d(Tf);  
-                RA = imref2d(size(obj.frame));
-                frame_zoomed = imwarp(obj.frame,tform,'OutputView',RA);
-                frame_zoomed = imcrop(frame_zoomed,...
-                    [size(obj.frame,2)/2-150 size(obj.frame,1)/2-100 350 200]);
-            else
-                frame_zoomed = zeros(201,351);
-            end
-            
         end
         
         %------------------------------------------------------------------
@@ -437,16 +329,6 @@ classdef LiveParam < handle
             obj.tracking.Skeleton = NaN(obj.numframes,2,obj.numSkelPoints);
             obj.tracking.SkeletonAngle = NaN(obj.numframes,obj.numSkelPoints);
             
-            vOut1 = VideoWriter([imagedir '_tracking_offline.avi'],'Motion JPEG AVI');
-            vOut1.Quality = 80;
-            vOut1.FrameRate = 100;
-            open(vOut1);
-
-            vOut2 = VideoWriter([imagedir '_cropped.avi'],'Motion JPEG AVI');
-            vOut2.Quality = 80;
-            vOut2.FrameRate = 100;
-            open(vOut2);
-            
             obj.frame_num = 0;
             tic
             while movie.hasFrame()
@@ -474,15 +356,7 @@ classdef LiveParam < handle
                 obj.detect_paramecias(framefilt);
                 obj.detect_eyes(framefilt);
                 obj.detect_tail(framefilt);
-
-                frame_zoomed = obj.zoom_and_rotate;
-                
-                writeVideo(vOut1,obj.frame)
-                writeVideo(vOut2,frame_zoomed)
             end
-            
-            close(vOut1);
-            close(vOut2);
             
             behavior = obj.tracking;
             save([imagedir '_tracking_offline.mat'],'behavior');
