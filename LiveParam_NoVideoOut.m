@@ -1,4 +1,4 @@
-classdef LiveParam < handle
+classdef LiveParam_NoVideoOut < handle
     
     properties
         mountdir
