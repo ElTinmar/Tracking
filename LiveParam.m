@@ -117,7 +117,9 @@ classdef LiveParam < handle
             assert(rangesamp(2)-rangesamp(1) >= obj.n_randsamples)
 
             disp(['computing background ' obj.datafiles.video{indfish} ':'])
-            frames_bckg = sort(randsample(rangesamp(1):rangesamp(2),obj.n_randsamples));
+            
+            %frames_bckg = sort(randsample(rangesamp(1):rangesamp(2),obj.n_randsamples));
+            frames_bckg = linspace(rangesamp(1),rangesamp(2),obj.n_randsamples);
             movie = VideoReader(obj.datafiles.video{indfish});
             background_model = zeros(movie.height,movie.width,obj.n_randsamples,'single');
             frame_num = 0;
@@ -405,6 +407,8 @@ classdef LiveParam < handle
             movie = VideoReader(obj.datafiles.video{indfish});
             [path,prefix,~] = fileparts(obj.datafiles.video{indfish});
             imagedir = fullfile(path,prefix);
+            
+            disp(['geting number of frames ' obj.datafiles.video{indfish} ':'])
             obj.numframes = movie.NumFrames;
             
             if obj.gpu
