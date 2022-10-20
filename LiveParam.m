@@ -119,7 +119,7 @@ classdef LiveParam < handle
             disp(['computing background ' obj.datafiles.video{indfish} ':'])
             
             %frames_bckg = sort(randsample(rangesamp(1):rangesamp(2),obj.n_randsamples));
-            frames_bckg = linspace(rangesamp(1),rangesamp(2),obj.n_randsamples);
+            frames_bckg = round(linspace(rangesamp(1),rangesamp(2),obj.n_randsamples));
             movie = VideoReader(obj.datafiles.video{indfish});
             background_model = zeros(movie.height,movie.width,obj.n_randsamples,'single');
             frame_num = 0;
