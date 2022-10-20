@@ -27,7 +27,7 @@ classdef LiveParam_NoVideoOut < handle
     methods
         
         %------------------------------------------------------------------
-        function obj = LiveParam()
+        function obj = LiveParam_NoVideoOut()
             % identify computer to use correct data path and number of cores 
             [ret, name] = system('hostname');
             computer = strtrim(lower(name));
