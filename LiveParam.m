@@ -2,13 +2,12 @@ classdef LiveParam < handle
     
     properties
         mountdir
-        figuredir
         analysisdir
         datadir
         datafiles
         numfish
         
-        n_randsamples = 500;
+        n_randsamples = 1000;
         prcthresh = 0.2;
         prcthresh_param = 0.8;
         prcthresh_eyes = 0.06;
@@ -18,14 +17,11 @@ classdef LiveParam < handle
         param_rad = 15;
         fishlen = 165;
         numSkelPoints = 6;
-        notifyFreq = 100; 
         
         tracking
         frame
         frame_num
         numframes
-        graphics
-        display = 0; % 1: periodically update figures to monitor tracking
         gpu = 1; % 0: use CPU, 1: use GPU
     end
     
@@ -52,7 +48,6 @@ classdef LiveParam < handle
             end
             
             % path --------------------------------------------------------
-            obj.figuredir = fullfile(obj.mountdir,'MeCP2/Results/Behavior');
             obj.analysisdir = fullfile(obj.mountdir,'MeCP2/Analysis');
             obj.datadir = fullfile(obj.mountdir,'MeCP2/LiveParamecia');
              
@@ -62,62 +57,8 @@ classdef LiveParam < handle
             
             % files -------------------------------------------------------
             obj.loadfiles();
-            
-            if obj.display
-                obj.createFigure();
-            end
         end
         
-        %------------------------------------------------------------------
-        function createFigure(obj)
-            
-            obj.graphics.fig1 = figure;
-            % left eye
-            obj.graphics.p1 = plot([0 0],[0 0],'Color',[1 0 0]);
-            hold on
-            % right eye
-            obj.graphics.p2 = plot([0 0],[0 0],'Color',[0 1 1]);
-            % vergence
-            obj.graphics.p5 = plot([0 0],[0 0],'k');
-
-            obj.graphics.fig2 = figure;
-            % number of paramecia
-            obj.graphics.p3 = plot([0 0],[0 0],'k');
-
-            obj.graphics.fig3 = figure;
-            % skeleton angle last segment
-            obj.graphics.p4 = plot([0 0],[0 0],'k');
-
-            obj.graphics.fig4 = figure;
-            % obj.frame
-            obj.graphics.im = imagesc();
-            axis image
-        end
-        
-        %------------------------------------------------------------------
-        function plotData(obj)
-            
-            obj.graphics.p1.XData = 1:obj.frame_num;
-            obj.graphics.p1.YData = obj.tracking.LeftEyeAngle(1:obj.frame_num);
-            
-            obj.graphics.p2.XData = 1:obj.frame_num;
-            obj.graphics.p2.YData = obj.tracking.RightEyeAngle(1:obj.frame_num);
-            
-            obj.graphics.p5.XData = 1:obj.frame_num;
-            obj.graphics.p5.YData = abs(obj.tracking.RightEyeAngle(1:obj.frame_num)) ...
-                + abs(obj.tracking.LeftEyeAngle(1:obj.frame_num));
-            
-            obj.graphics.p3.XData = 1:obj.frame_num;
-            obj.graphics.p3.YData = obj.tracking.numParam(1:obj.frame_num);
-            
-            obj.graphics.p4.XData = 1:obj.frame_num;
-            obj.graphics.p4.YData = obj.tracking.SkeletonAngle(1:obj.frame_num,obj.numSkelPoints);
-            
-            obj.graphics.im.CData = obj.frame;
-            
-            drawnow
-            
-        end
         
         %------------------------------------------------------------------
         function loadfiles(obj)
@@ -413,7 +354,7 @@ classdef LiveParam < handle
                         'LineWidth',1,'Color',[0 1 0]);
                 end
 
-                % fit smoothing splines to the tail (todo in PC space)
+                %%TODO fit smoothing splines to the tail (todo in PC space)
 %                 p = 0.9;
 %                 skel_x = obj.tracking.Skeleton(obj.frame_num,1,:);
 %                 skel_y = obj.tracking.Skeleton(obj.frame_num,2,:);
@@ -428,6 +369,7 @@ classdef LiveParam < handle
         
         %------------------------------------------------------------------
         function frame_zoomed = zoom_and_rotate(obj)
+        %%TODO fix magic numbers as number of fish length
             
             if ~isnan(obj.tracking.PC1X(obj.frame_num))
                 angle = atan2(obj.tracking.PC1Y(obj.frame_num),obj.tracking.PC1X(obj.frame_num));
@@ -499,7 +441,6 @@ classdef LiveParam < handle
             vOut2.Quality = 80;
             vOut2.FrameRate = 100;
             open(vOut2);
-
             
             obj.frame_num = 0;
             tic
@@ -528,10 +469,6 @@ classdef LiveParam < handle
                 obj.detect_paramecias(framefilt);
                 obj.detect_eyes(framefilt);
                 obj.detect_tail(framefilt);
-                
-                if (obj.display & mod(obj.frame_num,obj.notifyFreq)==0)
-                    obj.plotData();
-                end
 
                 frame_zoomed = obj.zoom_and_rotate;
                 
